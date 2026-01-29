@@ -127,13 +127,14 @@ def wait_for_bite(sct):
         except:
             pass
 
-        # 检查感叹号（阈值 0.5）
+        # 检查感叹号（阈值 0.8）
         try:
             hook_img = np.array(sct.grab(hook_pos))
             gray = cv2.cvtColor(hook_img, cv2.COLOR_BGRA2GRAY)
             res = cv2.matchTemplate(gray, template, cv2.TM_CCOEFF_NORMED)
             max_val = float(np.max(res))
-            if max_val >= 0.5:
+            print(f"检测感叹号，匹配度={max_val:.3f}")
+            if max_val >= 0.8:
                 print(f"✅ 检测到感叹号，（匹配度={max_val:.3f}），鱼已上钩，进入 QTE")
                 pydirectinput.press('space')
                 return True
