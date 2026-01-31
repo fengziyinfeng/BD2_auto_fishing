@@ -241,19 +241,19 @@ def play_qte(sct):
             action_duration = 0  # 按空格时间
 
             # qte检测
-            print("qte检测")
+            #print("qte检测")
             if pixel_count_yellow > 8000:
-                print("检测到黄条")
+                #print("检测到黄条")
                 no_bar_frames = 0
                 selected_mask = mask_yellow
                 action_duration = 0.1
             elif pixel_count_green > 8000:
-                print("检测到绿条")
+                #print("检测到绿条")
                 no_bar_frames = 0
                 selected_mask = mask_green
                 action_duration = 0.2
             elif pixel_count_blue > 8000:
-                print("检测到蓝条")
+                #print("检测到蓝条")
                 no_bar_frames = 0
                 selected_mask = mask_blue
                 action_duration = 0.1  
@@ -271,7 +271,7 @@ def play_qte(sct):
 
                 if np.max(col_sums) != 0:  # 有白色像素
                     cursor_x = np.argmax(col_sums)
-                    print("检测到光标")
+                    #print("检测到光标")
                     # 防止 cursor_x 越界
                     if cursor_x >= selected_mask.shape[1]:
                         cursor_x = selected_mask.shape[1] - 1
@@ -290,7 +290,7 @@ def play_qte(sct):
                             current_time = time.time()
                             # 防抖：至少间隔 0.1 秒才可再次按
                             if current_time - last_press_time > 0.1:
-                                print("出发攻击")
+                                #print("触发攻击")
                                 pydirectinput.keyDown('space')  # 按下空格
                                 time.sleep(action_duration)  # 按住空格指定时间
                                 pydirectinput.keyUp('space')  # 释放空格
