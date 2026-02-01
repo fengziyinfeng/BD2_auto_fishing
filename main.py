@@ -121,13 +121,14 @@ upper_green = np.array([80, 255, 255])
 
 lower_blue = np.array([100, 100, 100])  # 蓝色条的HSV范围
 upper_blue = np.array([140, 255, 255])
+
 fail_num = 0
 
 def handle_timeout():
     print("🔄 异常恢复：回正并重置状态...")
-    pydirectinput.keyDown('up')
-    time.sleep(2.0)
-    pydirectinput.keyUp('up')
+    pydirectinput.keyDown('down')
+    time.sleep(0.75)
+    pydirectinput.keyUp('down')
     finish_fishing(region["left"] + region["width"]//2, region["top"] + region["height"]//2)
     time.sleep(0.5)
     pydirectinput.press('space')
@@ -142,7 +143,7 @@ def finish_fishing(cx, cy):
 def cast_rod():
     print("🎣 抛竿...")
     pydirectinput.keyDown('space')
-    time.sleep(0.4)
+    time.sleep(0.38)
     pydirectinput.keyUp('space')
 
 def clear_backpack():
@@ -152,22 +153,22 @@ def clear_backpack():
     w, h = region['width'], region['height']
     x0, y0 = region['left'], region['top']
     pydirectinput.click(x0 + int(w * 0.87), y0 + int(h * 0.92))
-    time.sleep(1)
+    time.sleep(0.75)
     pydirectinput.click(x0 + int(w * 0.82), y0 + int(h * 0.92))
-    time.sleep(1)
+    time.sleep(0.75)
     pydirectinput.click(x0 + int(w * 0.92), y0 + int(h * 0.92))
-    time.sleep(1)
+    time.sleep(0.75)
     pydirectinput.click(x0 + int(w * 0.57), y0 + int(h * 0.61))
-    time.sleep(1)
+    time.sleep(0.75)
     pydirectinput.click(x0 + int(w * 0.10), y0 + int(h * 0.12))
-    time.sleep(1)
+    time.sleep(0.75)
 
 def wait_for_bite(sct,threshold):
     global fail_num
     print("⏳ 等待上钩...")
     start_time = time.time()
 
-    # 短暂延迟，避开抛竿动画（可调）
+    # 短暂延迟，避开抛竿动画
     time.sleep(0.5)
 
     while True:
@@ -259,8 +260,8 @@ def play_qte(sct):
                 action_duration = 0.1  
             else:
                 no_bar_frames += 1
-                if no_bar_frames > 120:
-                    print("120帧未检测到qte条，qte结束")
+                if no_bar_frames > 30:
+                    print("未检测到qte条，qte结束")
                     break
 
             # 如果有有效的条形被检测到，继续检查光标
@@ -278,9 +279,6 @@ def play_qte(sct):
                     if cursor_x < 0:
                         cursor_x = 0
 
-                    # 打印光标位置
-                    # print(f"🔳 光标位置: {cursor_x} (QTE 阶段)")
-
                     # 使用中间行判断（与原脚本一致）
                     check_y = selected_mask.shape[0] // 2
                     
@@ -297,22 +295,19 @@ def play_qte(sct):
                                 last_press_time = current_time
                                 last_action_time = current_time  # 更新上次按空格时间
                                 qte_press_count += 1
-                    # 三秒未按空格就双击空格(模拟光标被冻结）
-                    if time.time() - last_action_time > 5:
-                        print("⏳ 5秒未按空格，预测为光标被冻结")
-                        for _ in range(2):
+                                
+                    # 3秒未按空格就双击空格(模拟光标被冻结）
+                    if time.time() - last_action_time > 3:
+                        print("⏳ 3秒未按空格，预测为光标被冻结")
+                        for _ in range(3):
                             pydirectinput.press('space')
                             time.sleep(0.1)
                         last_action_time = time.time()  # 重置计时
                                 
-         
-                
         except Exception as e:
             print(f"⚠️ QTE 异常: {e}")
             no_bar_frames += 10
-
-        time.sleep(0.032)
-    print(f"🎣 本轮 QTE 尝试触发了 {qte_press_count} 次")
+        time.sleep(0.032)# 1帧的时间
         
 def main():
     threshold_input = input("请输入感叹号匹配度阈值（默认值 0.85，直接按回车使用默认值）: ")
