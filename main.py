@@ -48,6 +48,7 @@ UI_TEMPLATES = {
     "map2": resource_path("TEMPLATES/map2.png"),
     "map3": resource_path("TEMPLATES/map3.png"),
     "map4": resource_path("TEMPLATES/map4.png"),
+    "map5": resource_path("TEMPLATES/map5.png"),
     "Go": resource_path("TEMPLATES/Go.png"),
 }
 
@@ -139,6 +140,7 @@ BUTTON_REGIONS = {
     "map2":  (0,0, 1, 1),
     "map3":  (0,0, 1, 1),
     "map4":  (0,0, 1, 1),
+    "map5":  (0,0, 1, 1),
     "Go":  (0.75, 0.5, 1, 1),
 }
 
@@ -154,6 +156,14 @@ def calc_roi(region, ratio):
 #===================通用方法=========================
 #查找UI位置
 def match_UI(UI_name, region, threshold=0.5):
+    if UI_name not in UI_TEMPLATES:
+        print(f"❌ 模板文件未定义: {UI_name}")
+        return None
+    
+    if UI_name not in BUTTON_REGIONS:
+        print(f"❌ 查找区域未定义: {UI_name}")
+        return None
+    
     template_raw = cv2.imread(
         UI_TEMPLATES[UI_name],
         cv2.IMREAD_GRAYSCALE
@@ -168,6 +178,7 @@ def match_UI(UI_name, region, threshold=0.5):
     th = int(template_raw.shape[0] * scale)
 
     if tw < 5 or th < 5:
+        print(f"分辨率过低，导致缩放后的模板一边长小于5像素")
         return None
     template = cv2.resize(template_raw, (tw, th), cv2.INTER_AREA)
     roi = calc_roi(region, BUTTON_REGIONS[UI_name])
@@ -179,11 +190,11 @@ def match_UI(UI_name, region, threshold=0.5):
 
     print(f"🔎 {UI_name} 匹配度: {max_val:.3f}")
 
-    if max_val < threshold:
-        return None
-
     x = roi["left"] + max_loc[0]
     y = roi["top"] + max_loc[1]
+    
+    if max_val < threshold:
+        max_val = 0
 
     return {
         "name": UI_name,
@@ -198,6 +209,7 @@ def match_UI(UI_name, region, threshold=0.5):
 def center_of(box):
     cx = box["x"] + box["w"] // 2
     cy = box["y"] + box["h"] // 2
+    print("当前元素中心为 ({cx}, {cy})")
     return cx, cy
 
 #点击
@@ -436,7 +448,7 @@ def clean_backpack():
 
         start = time.time()
         while time.time() - start < 5:
-            if match_UI("shaonv", region):
+            if match_UI("shaonv", region)["score"] != 0:
                 print("✅ 已成功进入背包界面")
                 break
             time.sleep(0.5)
@@ -446,7 +458,7 @@ def clean_backpack():
         for name in ["AllSell", "All", "OK1", "OK2", "Back"]:
             box = match_UI(name, region)
             cx, cy = center_of(box)
-            if box:
+            if box["score"] != 0:
                 print(f"正在处理{name}，匹配度：{box['score']:.3f}")
                 click_UI(cx, cy)
                 time.sleep(1)
@@ -463,7 +475,7 @@ def click_change():
     def click_if_found(button_name):
         region = get_window_region(GAME_TITLE)
         box = match_UI(button_name, region)
-        if box:
+        if box["score"] != 0:
             cx, cy = center_of(box)
             click_UI(cx, cy)  # 点击按钮
             print(f"✅ 按钮 '{button_name}' 被点击")
@@ -485,19 +497,45 @@ def click_change():
         time.sleep(5)  # 等待5秒
 
     # 第三次检测，如果按钮依然存在，认为点击失败
-    if match_UI("change", get_window_region(GAME_TITLE)):
+    if match_UI("change", get_window_region(GAME_TITLE))["score"] != 0:
         print("❌ 仍检测到 'change' 按钮，切换失败")
         return False
     else:
         print("✅ 没有检测到 'change' 按钮，已成功切换")
         return True
-    
+
+#移动地图
+def drag_map_to_right():
+
+    # 从 region_center 中获取中心坐标
+    center_x = region_center['x']
+    center_y = region_center['y']
+    width = region['width']  # 窗口宽度
+    drag_to_x = center_x + int(0.4 * width)  # 目标位置是窗口中心向右40%
+
+    # 移动到窗口中心并按下左键
+    pydirectinput.moveTo(center_x, center_y)
+    time.sleep(0.5)
+    pydirectinput.mouseDown()
+    time.sleep(0.5)
+
+    # 向右拖动40%的窗口宽度
+    pydirectinput.moveTo(drag_to_x, center_y)
+    pydirectinput.moveTo(drag_to_x, center_y, duration=0.5)  # 0.5秒拖动到目标位置
+    time.sleep(0.5)
+
+    # 松开左键
+    pydirectinput.mouseUp()
+    time.sleep(1)
+    print("拖动地图")
+
 #对地图按钮进行匹配，返回匹配值最低的一个
+#所在地图图标会被放大，导致匹配度低
 def get_lowest_match_map(region):
     min_match = float("inf")
     lowest_map = None
     
-    for map_name in ["map1", "map2", "map3", "map4"]:
+    for map_name in ["map1", "map2", "map3","map4","map5"]:
         box = match_UI(map_name, region)
         name, match_val = box["name"],box["score"]
         if match_val < min_match:
@@ -508,7 +546,7 @@ def get_lowest_match_map(region):
     print(f"判定当前所在地图为{lowest_map}")
     return lowest_map, min_match
 
-#切换地图
+#切换地图操作
 def change_map(map_index):
     map_name = f"map{map_index}"
     time.sleep(1)
@@ -517,6 +555,10 @@ def change_map(map_index):
     #点击更换按钮
     if not click_change():
         return
+
+    #移动地图
+    drag_map_to_right()
+    
     region = get_window_region(GAME_TITLE)
     lowest_map, min_match = get_lowest_match_map(region)
     
@@ -528,7 +570,7 @@ def change_map(map_index):
             region = get_window_region(GAME_TITLE)
             box = match_UI(name, region)
             cx, cy = center_of(box)
-            if box:
+            if box["score"] != 0:
                 click_UI(cx, cy)
                 time.sleep(1)
         print("⏳ 等待切换地图15秒")
@@ -537,11 +579,11 @@ def change_map(map_index):
         print("切换至预设地图")
         if not click_change():
             return
-        for  name in ["map1", "Go", "OK2"]:
+        for  name in [map_name, "Go", "OK2"]:
             region = get_window_region(GAME_TITLE)
             box = match_UI(name, region)
             cx, cy = center_of(box)
-            if box:
+            if box["score"] != 0:
                 click_UI(cx, cy)
                 time.sleep(1)
         print("⏳ 等待切换地图15秒")
@@ -553,7 +595,7 @@ def change_map(map_index):
             region = get_window_region(GAME_TITLE)
             box = match_UI(name, region)
             cx, cy = center_of(box)
-            if box:
+            if box["score"] != 0:
                 click_UI(cx, cy)
                 time.sleep(1)
         print("⏳ 等待切换地图15秒")
@@ -566,7 +608,7 @@ def change_map(map_index):
             region = get_window_region(GAME_TITLE)
             box = match_UI(name, region)
             cx, cy = center_of(box)
-            if box:
+            if box["score"] != 0:
                 click_UI(cx, cy)
                 time.sleep(1)
         print("⏳ 等待切换地图15秒")
@@ -589,18 +631,25 @@ def main():
     
     map_input = input("请输入每5小时30分钟自动切换的地图序号（默认值 1，直接按回车使用默认值）: ")
     print("如果开始就在图1，则会切换到图2，紧接着切换回来")
+    print("地图序号：1.烟波湖 2.浅岸 3.寒霜海峡 4.深渊巨口 5.亚特兰蒂斯")
     try:
         map_index = int(map_input) if map_input else 1
     except ValueError:
         print("⚠️ 输入非法，已自动使用默认地图 1")
         map_index = 1
+    if map_index > 5:
+        print("⚠️ 输入值未兼容，已自动使用默认地图 1")
+        map_index = 1
     print(f"🗺 当前选择地图: {map_index}")
     
-
     print("请3秒内手动切换至游戏窗口，脚本将会启动")
-
     start_time = time.time()
     time.sleep(3)
+#########################
+#测试
+    #change_map(map_index)
+    #clean_backpack()
+##########################
     global fail_num
     
     print("\n🚀 启动自动钓鱼\n")
